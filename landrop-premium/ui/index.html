@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>LANDrop Air</title>
+
+<style>
+
+/* ===== APPLE DARK BACKGROUND ===== */
+body {
+  margin: 0;
+  background: radial-gradient(circle at center, #1f2937, #020617);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: white;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== MAIN PANEL ===== */
+.panel {
+  text-align: center;
+  padding: 40px;
+  border-radius: 28px;
+
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(30px);
+
+  box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+}
+
+/* ===== TITLE ===== */
+h1 {
+  font-weight: 500;
+  margin-bottom: 30px;
+}
+
+/* ===== RADAR ===== */
+.radar {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  margin: auto;
+  border-radius: 50%;
+}
+
+/* Radar rings */
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(59,130,246,0.4);
+  animation: expand 3s infinite;
+}
+
+.ring:nth-child(1) { width: 120px; height: 120px; top: 100px; left: 100px; }
+.ring:nth-child(2) { width: 200px; height: 200px; top: 60px; left: 60px; animation-delay: 1s; }
+.ring:nth-child(3) { width: 280px; height: 280px; top: 20px; left: 20px; animation-delay: 2s; }
+
+@keyframes expand {
+  0% { opacity: 0.8; transform: scale(0.8); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+
+/* ===== CENTER ICON ===== */
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  font-size: 42px;
+}
+
+/* ===== DEVICE BUBBLE ===== */
+.device {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(15px);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+.device:hover {
+  transform: scale(1.15);
+  background: rgba(59,130,246,0.35);
+}
+
+.name {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* ===== BUTTON ===== */
+button {
+  margin-top: 25px;
+  background: linear-gradient(135deg,#60a5fa,#3b82f6);
+  border: none;
+  padding: 12px 26px;
+  border-radius: 10px;
+  color: white;
+  cursor: pointer;
+}
+
+/* ===== POPUP ===== */
+.popup {
+  position: fixed;
+  bottom: 40px;
+  background: rgba(0,0,0,0.7);
+  padding: 18px 26px;
+  border-radius: 14px;
+  backdrop-filter: blur(15px);
+}
+
+.popup button {
+  margin: 10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="panel">
+
+  <h1>LANDrop Air</h1>
+
+  <div class="radar">
+
+    <div class="ring"></div>
+    <div class="ring"></div>
+    <div class="ring"></div>
+
+    <div class="center">📡</div>
+
+    <div id="devices"></div>
+
+  </div>
+
+  <button onclick="scan()">Scan Devices</button>
+
+</div>
+
+<div id="popup"></div>
+
+<script>
+const { exec } = require("child_process");
+
+let selectedIP = "";
+
+/* ===== SCAN ===== */
+function scan() {
+
+  exec("py engine/discovery_client.py", (err, out) => {
+
+    const container = document.getElementById("devices");
+    container.innerHTML = "";
+
+    let angle = 0;
+
+    out.split("\n").forEach(line => {
+
+      if (!line) return;
+
+      const [name, ip] = line.split("|");
+
+      const r = 130;
+      const x = 160 + r * Math.cos(angle);
+      const y = 160 + r * Math.sin(angle);
+      angle += 1.2;
+
+      const d = document.createElement("div");
+      d.className = "device";
+
+      d.style.left = x + "px";
+      d.style.top = y + "px";
+
+      d.innerHTML = `💻<div class="name">${name}</div>`;
+
+      d.onclick = () => requestPair(name, ip);
+
+      container.appendChild(d);
+    });
+
+  });
+
+}
+
+/* ===== PAIR REQUEST ===== */
+function requestPair(name, ip) {
+
+  selectedIP = ip;
+
+  const popup = document.getElementById("popup");
+
+  popup.innerHTML = `
+    <div class="popup">
+      ${name} wants to connect<br>
+      <button onclick="accept()">Accept</button>
+      <button onclick="reject()">Reject</button>
+    </div>
+  `;
+}
+
+/* ===== ACCEPT ===== */
+function accept() {
+  alert("Connected to " + selectedIP);
+  document.getElementById("popup").innerHTML = "";
+}
+
+/* ===== REJECT ===== */
+function reject() {
+  document.getElementById("popup").innerHTML = "";
+}
+
+</script>
+
+</body>
+</html>
