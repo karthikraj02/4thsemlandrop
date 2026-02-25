@@ -8,10 +8,10 @@ CHUNK = 1024 * 512
 os.makedirs("transfers", exist_ok=True)
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(("0.0.0.0", PORT))
+server.bind(("0.0.0.0", PORT))   # ⭐ IMPORTANT
 server.listen(20)
 
-print("📡 Receiver ready on port", PORT)
+print("📡 Receiver listening on port", PORT)
 
 while True:
     conn, addr = server.accept()
@@ -36,10 +36,6 @@ while True:
 
             print(f"💬 {addr[0]}: {msg}")
 
-            # ⭐ CONNECTED signal
-            if msg == "CONNECTED":
-                print("✅ Session established")
-
         # 📦 FILE DATA
         elif header == b"DATA":
 
@@ -60,7 +56,7 @@ while True:
                 f.seek(start)
                 f.write(data)
 
-            print(f"📦 File chunk received at {start}")
+            print("📦 File chunk received")
 
     except Exception as e:
         print("❌ Error:", e)

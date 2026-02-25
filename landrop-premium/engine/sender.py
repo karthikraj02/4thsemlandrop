@@ -26,17 +26,6 @@ def handshake(ip):
     s.recv(4)
     s.close()
 
-    # ⭐ Send CONNECTED signal
-    s = socket.socket()
-    s.connect((ip, PORT))
-
-    msg = b"CONNECTED"
-    s.send(b"MSG ")
-    s.send(len(msg).to_bytes(4, "big"))
-    s.send(msg)
-
-    s.close()
-
 
 # 💬 MESSAGE MODE
 if data_arg.startswith("MSG:"):
@@ -98,4 +87,4 @@ with open(data_arg, "rb") as f:
     for t in threads:
         t.join()
 
-print("🚀 Transfer complete")
+print("🚀 File transfer complete")
