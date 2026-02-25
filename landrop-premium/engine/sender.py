@@ -5,18 +5,42 @@ import threading
 from crypto import encrypt
 
 ip = sys.argv[1]
-path = sys.argv[2]
+data_arg = sys.argv[2]
 
 PORT = 5001
-CHUNK = 1024 * 512  # 512 KB
+CHUNK = 1024 * 512
 
 
-# =========================
-# 💬 SEND MESSAGE MODE
-# =========================
-if path.startswith("MSG:"):
+# ===================================
+# 🔗 HANDSHAKE FUNCTION
+# ===================================
+def handshake(ip):
 
-    msg = path[4:].encode()
+    name = os.getlogin().encode()
+
+    s = socket.socket()
+    s.connect((ip, PORT))
+
+    s.send(b"HELO")
+    s.send(len(name).to_bytes(2, "big"))
+    s.send(name)
+
+    response = s.recv(4)
+
+    if response == b"ACK ":
+        print("✅ Connected successfully")
+
+    s.close()
+
+
+# ===================================
+# 💬 MESSAGE MODE
+# ===================================
+if data_arg.startswith("MSG:"):
+
+    handshake(ip)
+
+    msg = data_arg[4:].encode()
 
     s = socket.socket()
     s.connect((ip, PORT))
@@ -26,13 +50,17 @@ if path.startswith("MSG:"):
     s.send(msg)
 
     s.close()
+
     print("💬 Message sent")
     sys.exit()
 
 
-# =========================
-# 📦 SEND FILE MODE
-# =========================
+# ===================================
+# 📦 FILE MODE
+# ===================================
+
+handshake(ip)
+
 
 def send_chunk(start, data):
 
@@ -46,9 +74,9 @@ def send_chunk(start, data):
     s.close()
 
 
-size = os.path.getsize(path)
+size = os.path.getsize(data_arg)
 
-with open(path, "rb") as f:
+with open(data_arg, "rb") as f:
 
     offset = 0
     threads = []
