@@ -8,7 +8,10 @@ CHUNK = 1024 * 512
 os.makedirs("transfers", exist_ok=True)
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(("0.0.0.0", PORT))   # ⭐ IMPORTANT
+
+# ⭐ CRITICAL FIX
+server.bind(("0.0.0.0", PORT))
+
 server.listen(20)
 
 print("📡 Receiver listening on port", PORT)
