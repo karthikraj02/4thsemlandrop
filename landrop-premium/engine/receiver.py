@@ -19,9 +19,7 @@ while True:
     try:
         header = conn.recv(4)
 
-        # =========================
         # 🔗 HANDSHAKE
-        # =========================
         if header == b"HELO":
 
             name_len = int.from_bytes(conn.recv(2), "big")
@@ -30,19 +28,19 @@ while True:
             print(f"🔗 {name} connected from {addr[0]}")
             conn.send(b"ACK ")
 
-        # =========================
         # 💬 MESSAGE
-        # =========================
         elif header == b"MSG ":
 
             length = int.from_bytes(conn.recv(4), "big")
             msg = conn.recv(length).decode()
 
-            print(f"💬 Message from {addr[0]}: {msg}")
+            print(f"💬 {addr[0]}: {msg}")
 
-        # =========================
+            # ⭐ CONNECTED signal
+            if msg == "CONNECTED":
+                print("✅ Session established")
+
         # 📦 FILE DATA
-        # =========================
         elif header == b"DATA":
 
             start = int.from_bytes(conn.recv(8), "big")

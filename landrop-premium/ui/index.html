@@ -5,6 +5,8 @@
 <title>LANDrop Air</title>
 
 <style>
+
+/* ===== BACKGROUND ===== */
 body{
   margin:0;
   background:radial-gradient(circle,#1f2937,#020617);
@@ -16,6 +18,7 @@ body{
   justify-content:center;
 }
 
+/* ===== PANEL ===== */
 .panel{
   text-align:center;
   padding:40px;
@@ -25,6 +28,9 @@ body{
   box-shadow:0 30px 80px rgba(0,0,0,0.7);
 }
 
+h1{ margin-bottom:20px; }
+
+/* ===== RADAR ===== */
 .radar{
   position:relative;
   width:320px;
@@ -55,6 +61,7 @@ body{
   font-size:42px;
 }
 
+/* ===== DEVICE BUBBLE ===== */
 .device{
   position:absolute;
   width:90px;
@@ -93,36 +100,38 @@ button{
   backdrop-filter:blur(15px);
 }
 
-.transfer{ margin-top:15px; }
-
-.ring-progress{
-  width:120px;
-  height:120px;
-  border-radius:50%;
-  border:8px solid rgba(255,255,255,.1);
-  border-top:8px solid #3b82f6;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:20px;
-  animation:spin 1s linear infinite;
+/* ===== CHAT ===== */
+#chatBox{
+  height:260px;
+  width:360px;
+  overflow:auto;
+  background:rgba(0,0,0,.4);
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:12px;
+  text-align:left;
 }
-@keyframes spin{to{transform:rotate(360deg)}}
 
-.chat input{
-  padding:8px;
+.chat-input{
+  padding:10px;
+  width:70%;
   border-radius:8px;
   border:none;
-  width:180px;
 }
 
-.secure{ margin-top:10px; opacity:.8; font-size:13px; }
+.secure{
+  margin-top:10px;
+  font-size:13px;
+  opacity:.8;
+}
+
 </style>
 </head>
 
 <body>
 
-<div class="panel">
+<!-- ========= CONNECT SCREEN ========= -->
+<div id="connectScreen" class="panel">
 
 <h1>LANDrop Air</h1>
 
@@ -138,17 +147,18 @@ button{
 
 <div class="secure">🔒 End-to-End Encrypted</div>
 
-<div id="transferUI" class="transfer" style="display:none">
-  <div class="ring-progress">
-    <span id="percent">0%</span>
-  </div>
-  <div id="speed"></div>
 </div>
 
-<div class="chat">
-  <input id="msg" placeholder="Message">
-  <button onclick="sendMsg()">Send</button>
-</div>
+<!-- ========= CHAT SCREEN ========= -->
+<div id="chatScreen" class="panel" style="display:none">
+
+<h2>💬 Connected</h2>
+
+<div id="chatBox"></div>
+
+<input id="chatInput" class="chat-input"
+       placeholder="Type message">
+<button onclick="sendMsg()">Send</button>
 
 </div>
 
@@ -158,134 +168,98 @@ button{
 const { exec } = require("child_process");
 
 let selectedDevice = null;
-let devices = [];
 const popup = document.getElementById("popup");
 
-window.onload = () => setTimeout(scan, 700);
+window.onload = () => setTimeout(scan, 800);
 
-/* ===== SCAN ===== */
+/* ===== DEVICE SCAN ===== */
 function scan(){
 
   exec("py engine/discovery_client.py",(err,out)=>{
 
-    if(err){
-      showPopup("❌ Discovery failed");
-      return;
-    }
-
     const container = document.getElementById("devices");
-    container.innerHTML="";
-    devices=[];
+    container.innerHTML = "";
 
-    let angle=0;
+    let angle = 0;
 
     out.split("\n").forEach(line=>{
 
       if(!line) return;
 
-      const [name,ip]=line.split("|");
-      devices.push({name,ip});
+      const [name,ip] = line.split("|");
 
-      const r=130;
-      const x=160+r*Math.cos(angle);
-      const y=160+r*Math.sin(angle);
-      angle+=1.2;
+      const r = 130;
+      const x = 160 + r*Math.cos(angle);
+      const y = 160 + r*Math.sin(angle);
+      angle += 1.2;
 
-      const d=document.createElement("div");
-      d.className="device";
-      d.style.left=x+"px";
-      d.style.top=y+"px";
-      d.innerHTML=`💻<div>${name}</div><small>${ip}</small>`;
+      const d = document.createElement("div");
+      d.className = "device";
+      d.style.left = x + "px";
+      d.style.top  = y + "px";
+      d.innerHTML = `💻<div>${name}</div>`;
 
-      d.onclick=()=>requestPair(name,ip);
-
-      d.ondragover=e=>e.preventDefault();
-      d.ondrop=e=>{
-        e.preventDefault();
-        const file=e.dataTransfer.files[0];
-        if(file) sendFile(ip,file.path,name);
-      };
+      d.onclick = ()=>requestPair(name,ip);
 
       container.appendChild(d);
     });
   });
 }
 
-/* ===== PAIR ===== */
+/* ===== PAIR REQUEST ===== */
 function requestPair(name,ip){
-  selectedDevice={name,ip};
 
-  popup.innerHTML=`
+  selectedDevice = {name,ip};
+
+  popup.innerHTML = `
     <div class="popup">
-      ${name} (${ip}) wants to connect<br>
+      Connect to ${name}?<br>
       <button onclick="accept()">Accept</button>
       <button onclick="reject()">Reject</button>
     </div>`;
 }
 
+/* ===== ACCEPT CONNECTION ===== */
 function accept(){
+
   showPopup(`✅ Connected to ${selectedDevice.name}`);
+
+  // send CONNECTED signal
+  exec(`py engine/sender.py "${selectedDevice.ip}" "MSG:CONNECTED"`);
+
+  setTimeout(openChat,1200);
 }
 
-function reject(){ popup.innerHTML="" }
+function reject(){ popup.innerHTML=""; }
 
-/* ===== FILE SEND ===== */
-function sendFile(ip,path,name){
+/* ===== SWITCH TO CHAT ===== */
+function openChat(){
 
-  startTransferUI();
-
-  exec(`py engine/sender.py "${ip}" "${path}"`);
+  document.getElementById("connectScreen").style.display="none";
+  document.getElementById("chatScreen").style.display="block";
 }
 
-/* ===== TRANSFER UI ===== */
-function startTransferUI(){
-
-  const ui=document.getElementById("transferUI");
-  const percent=document.getElementById("percent");
-  const speed=document.getElementById("speed");
-
-  ui.style.display="block";
-
-  let p=0;
-
-  const interval=setInterval(()=>{
-
-    p+=Math.random()*8;
-
-    if(p>=100){
-      p=100;
-      clearInterval(interval);
-      speed.innerText="Transfer complete";
-      setTimeout(()=>ui.style.display="none",1500);
-    }
-
-    percent.innerText=Math.floor(p)+"%";
-    speed.innerText=(2+Math.random()*6).toFixed(2)+" MB/s";
-
-  },300);
-}
-
-/* ===== MESSAGE ===== */
+/* ===== SEND MESSAGE ===== */
 function sendMsg(){
 
-  if(!selectedDevice){
-    showPopup("⚠️ Connect first");
-    return;
-  }
+  if(!selectedDevice) return;
 
-  const text=document.getElementById("msg").value;
+  const text = document.getElementById("chatInput").value;
 
   exec(`py engine/sender.py "${selectedDevice.ip}" "MSG:${text}"`);
 
-  showPopup("💬 Message sent");
+  const box = document.getElementById("chatBox");
+  box.innerHTML += `<div>🟢 You: ${text}</div>`;
+
+  document.getElementById("chatInput").value="";
 }
 
-/* ===== POPUP HELPER ===== */
+/* ===== POPUP ===== */
 function showPopup(msg){
-  popup.innerHTML=`<div class="popup">${msg}</div>`;
+
+  popup.innerHTML = `<div class="popup">${msg}</div>`;
   setTimeout(()=>popup.innerHTML="",2000);
 }
-
 </script>
 
 </body>
