@@ -3,7 +3,7 @@ import os
 from crypto import decrypt
 
 PORT = 5001
-CHUNK = 1024 * 512  # 512 KB
+CHUNK = 1024 * 512
 
 os.makedirs("transfers", exist_ok=True)
 
@@ -11,7 +11,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(("0.0.0.0", PORT))
 server.listen(20)
 
-print("📡 GOD Receiver Ready on port", PORT)
+print("📡 Receiver ready on port", PORT)
 
 while True:
     conn, addr = server.accept()
@@ -19,35 +19,30 @@ while True:
     try:
         header = conn.recv(4)
 
-        # ===================================
-        # 🔗 CONNECTION HANDSHAKE
-        # ===================================
+        # =========================
+        # 🔗 HANDSHAKE
+        # =========================
         if header == b"HELO":
 
             name_len = int.from_bytes(conn.recv(2), "big")
             name = conn.recv(name_len).decode()
 
             print(f"🔗 {name} connected from {addr[0]}")
-
-            # Send ACK back
             conn.send(b"ACK ")
 
-            # 🔔 LOCAL POPUP TRIGGER (terminal)
-            print("✅ Connection established")
-
-        # ===================================
+        # =========================
         # 💬 MESSAGE
-        # ===================================
+        # =========================
         elif header == b"MSG ":
 
             length = int.from_bytes(conn.recv(4), "big")
             msg = conn.recv(length).decode()
 
-            print("💬 Message:", msg)
+            print(f"💬 Message from {addr[0]}: {msg}")
 
-        # ===================================
-        # 📦 FILE CHUNK
-        # ===================================
+        # =========================
+        # 📦 FILE DATA
+        # =========================
         elif header == b"DATA":
 
             start = int.from_bytes(conn.recv(8), "big")
@@ -67,7 +62,7 @@ while True:
                 f.seek(start)
                 f.write(data)
 
-            print(f"📦 Chunk received at {start}")
+            print(f"📦 File chunk received at {start}")
 
     except Exception as e:
         print("❌ Error:", e)

@@ -1,102 +1,71 @@
 import socket
 import os
-import sys
-import threading
-from crypto import encrypt
-
-ip = sys.argv[1]
-data_arg = sys.argv[2]
+from crypto import decrypt
 
 PORT = 5001
 CHUNK = 1024 * 512
 
+os.makedirs("transfers", exist_ok=True)
 
-# ===================================
-# 🔗 HANDSHAKE FUNCTION
-# ===================================
-def handshake(ip):
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(("0.0.0.0", PORT))
+server.listen(20)
 
-    name = os.getlogin().encode()
+print("📡 Receiver ready on port", PORT)
 
-    s = socket.socket()
-    s.connect((ip, PORT))
+while True:
+    conn, addr = server.accept()
 
-    s.send(b"HELO")
-    s.send(len(name).to_bytes(2, "big"))
-    s.send(name)
+    try:
+        header = conn.recv(4)
 
-    response = s.recv(4)
+        # =========================
+        # 🔗 HANDSHAKE
+        # =========================
+        if header == b"HELO":
 
-    if response == b"ACK ":
-        print("✅ Connected successfully")
+            name_len = int.from_bytes(conn.recv(2), "big")
+            name = conn.recv(name_len).decode()
 
-    s.close()
+            print(f"🔗 {name} connected from {addr[0]}")
+            conn.send(b"ACK ")
 
+        # =========================
+        # 💬 MESSAGE
+        # =========================
+        elif header == b"MSG ":
 
-# ===================================
-# 💬 MESSAGE MODE
-# ===================================
-if data_arg.startswith("MSG:"):
+            length = int.from_bytes(conn.recv(4), "big")
+            msg = conn.recv(length).decode()
 
-    handshake(ip)
+            print(f"💬 Message from {addr[0]}: {msg}")
 
-    msg = data_arg[4:].encode()
+        # =========================
+        # 📦 FILE DATA
+        # =========================
+        elif header == b"DATA":
 
-    s = socket.socket()
-    s.connect((ip, PORT))
+            start = int.from_bytes(conn.recv(8), "big")
 
-    s.send(b"MSG ")
-    s.send(len(msg).to_bytes(4, "big"))
-    s.send(msg)
+            data = b""
+            while True:
+                part = conn.recv(CHUNK)
+                if not part:
+                    break
+                data += part
 
-    s.close()
+            data = decrypt(data)
 
-    print("💬 Message sent")
-    sys.exit()
+            file_path = "transfers/received.bin"
 
+            with open(file_path, "r+b") if os.path.exists(file_path) else open(file_path, "wb") as f:
+                f.seek(start)
+                f.write(data)
 
-# ===================================
-# 📦 FILE MODE
-# ===================================
+            print(f"📦 File chunk received at {start}")
 
-handshake(ip)
+    except Exception as e:
+        print("❌ Error:", e)
 
-
-def send_chunk(start, data):
-
-    s = socket.socket()
-    s.connect((ip, PORT))
-
-    s.send(b"DATA")
-    s.send(start.to_bytes(8, "big"))
-    s.send(encrypt(data))
-
-    s.close()
-
-
-size = os.path.getsize(data_arg)
-
-with open(data_arg, "rb") as f:
-
-    offset = 0
-    threads = []
-
-    while True:
-        chunk = f.read(CHUNK)
-        if not chunk:
-            break
-
-        t = threading.Thread(
-            target=send_chunk,
-            args=(offset, chunk)
-        )
-
-        t.start()
-        threads.append(t)
-
-        offset += len(chunk)
-
-    for t in threads:
-        t.join()
-
-print("🚀 Transfer Complete")
+    finally:
+        conn.close()
