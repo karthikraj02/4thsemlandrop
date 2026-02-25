@@ -5,8 +5,6 @@
 <title>LANDrop Air</title>
 
 <style>
-
-/* ===== BACKGROUND ===== */
 body{
   margin:0;
   background:radial-gradient(circle,#1f2937,#020617);
@@ -18,7 +16,6 @@ body{
   justify-content:center;
 }
 
-/* ===== PANEL ===== */
 .panel{
   text-align:center;
   padding:40px;
@@ -28,9 +25,6 @@ body{
   box-shadow:0 30px 80px rgba(0,0,0,0.7);
 }
 
-h1{ margin-bottom:20px; }
-
-/* ===== RADAR ===== */
 .radar{
   position:relative;
   width:320px;
@@ -39,7 +33,6 @@ h1{ margin-bottom:20px; }
   border-radius:50%;
 }
 
-/* Radar rings */
 .ring{
   position:absolute;
   border-radius:50%;
@@ -62,7 +55,6 @@ h1{ margin-bottom:20px; }
   font-size:42px;
 }
 
-/* ===== DEVICE BUBBLE ===== */
 .device{
   position:absolute;
   width:90px;
@@ -81,9 +73,7 @@ h1{ margin-bottom:20px; }
   transform:scale(1.15);
   background:rgba(59,130,246,.35);
 }
-.name{font-size:12px;margin-top:4px}
 
-/* ===== BUTTON ===== */
 button{
   margin-top:20px;
   background:linear-gradient(135deg,#60a5fa,#3b82f6);
@@ -94,7 +84,6 @@ button{
   cursor:pointer;
 }
 
-/* ===== POPUP ===== */
 .popup{
   position:fixed;
   bottom:40px;
@@ -104,10 +93,7 @@ button{
   backdrop-filter:blur(15px);
 }
 
-/* ===== TRANSFER UI ===== */
-.transfer{
-  margin-top:15px;
-}
+.transfer{ margin-top:15px; }
 
 .ring-progress{
   width:120px;
@@ -123,23 +109,14 @@ button{
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ===== CHAT ===== */
-.chat{ margin-top:15px }
 .chat input{
   padding:8px;
   border-radius:8px;
   border:none;
   width:180px;
 }
-.chat button{ padding:8px 16px }
 
-/* ===== BADGES ===== */
-.secure{
-  margin-top:10px;
-  font-size:13px;
-  opacity:.8;
-}
-
+.secure{ margin-top:10px; opacity:.8; font-size:13px; }
 </style>
 </head>
 
@@ -150,22 +127,17 @@ button{
 <h1>LANDrop Air</h1>
 
 <div class="radar">
-
 <div class="ring"></div>
 <div class="ring"></div>
 <div class="ring"></div>
-
 <div class="center">📡</div>
-
 <div id="devices"></div>
-
 </div>
 
 <button onclick="scan()">Scan Devices</button>
 
 <div class="secure">🔒 End-to-End Encrypted</div>
 
-<!-- Transfer UI -->
 <div id="transferUI" class="transfer" style="display:none">
   <div class="ring-progress">
     <span id="percent">0%</span>
@@ -173,7 +145,6 @@ button{
   <div id="speed"></div>
 </div>
 
-<!-- Chat -->
 <div class="chat">
   <input id="msg" placeholder="Message">
   <button onclick="sendMsg()">Send</button>
@@ -188,14 +159,19 @@ const { exec } = require("child_process");
 
 let selectedDevice = null;
 let devices = [];
+const popup = document.getElementById("popup");
 
-/* ===== AUTO CONNECT ===== */
 window.onload = () => setTimeout(scan, 700);
 
-/* ===== SCAN DEVICES ===== */
+/* ===== SCAN ===== */
 function scan(){
 
   exec("py engine/discovery_client.py",(err,out)=>{
+
+    if(err){
+      showPopup("❌ Discovery failed");
+      return;
+    }
 
     const container = document.getElementById("devices");
     container.innerHTML="";
@@ -219,12 +195,10 @@ function scan(){
       d.className="device";
       d.style.left=x+"px";
       d.style.top=y+"px";
-      d.innerHTML=`💻<div class="name">${name}</div>`;
+      d.innerHTML=`💻<div>${name}</div><small>${ip}</small>`;
 
-      /* CLICK → PAIR */
       d.onclick=()=>requestPair(name,ip);
 
-      /* 🔥 DRAG TARGET */
       d.ondragover=e=>e.preventDefault();
       d.ondrop=e=>{
         e.preventDefault();
@@ -240,31 +214,31 @@ function scan(){
 /* ===== PAIR ===== */
 function requestPair(name,ip){
   selectedDevice={name,ip};
+
   popup.innerHTML=`
     <div class="popup">
-      ${name} wants to connect<br>
+      ${name} (${ip}) wants to connect<br>
       <button onclick="accept()">Accept</button>
       <button onclick="reject()">Reject</button>
     </div>`;
 }
 
 function accept(){
-  popup.innerHTML=`
-    <div class="popup">✅ Connected to ${selectedDevice.name}</div>`;
-  setTimeout(()=>popup.innerHTML="",2000);
+  showPopup(`✅ Connected to ${selectedDevice.name}`);
 }
+
 function reject(){ popup.innerHTML="" }
 
-/* ===== SEND FILE ===== */
+/* ===== FILE SEND ===== */
 function sendFile(ip,path,name){
 
-  startTransferUI(name);
+  startTransferUI();
 
-  exec(`py engine/sender.py ${ip} "${path}"`);
+  exec(`py engine/sender.py "${ip}" "${path}"`);
 }
 
 /* ===== TRANSFER UI ===== */
-function startTransferUI(name){
+function startTransferUI(){
 
   const ui=document.getElementById("transferUI");
   const percent=document.getElementById("percent");
@@ -282,6 +256,7 @@ function startTransferUI(name){
       p=100;
       clearInterval(interval);
       speed.innerText="Transfer complete";
+      setTimeout(()=>ui.style.display="none",1500);
     }
 
     percent.innerText=Math.floor(p)+"%";
@@ -290,14 +265,25 @@ function startTransferUI(name){
   },300);
 }
 
-/* ===== CHAT ===== */
+/* ===== MESSAGE ===== */
 function sendMsg(){
 
-  if(!selectedDevice) return;
+  if(!selectedDevice){
+    showPopup("⚠️ Connect first");
+    return;
+  }
 
   const text=document.getElementById("msg").value;
 
-  exec(`py engine/sender.py ${selectedDevice.ip} "MSG:${text}"`);
+  exec(`py engine/sender.py "${selectedDevice.ip}" "MSG:${text}"`);
+
+  showPopup("💬 Message sent");
+}
+
+/* ===== POPUP HELPER ===== */
+function showPopup(msg){
+  popup.innerHTML=`<div class="popup">${msg}</div>`;
+  setTimeout(()=>popup.innerHTML="",2000);
 }
 
 </script>
